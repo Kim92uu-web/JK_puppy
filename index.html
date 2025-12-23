@@ -249,12 +249,15 @@
 </head>
 <body>
 
+    <!-- 🌟 重要：加了这个隐形标签来解决没声音的问题 -->
+    <audio id="bgm" preload="auto" style="display:none;"></audio>
+
     <!-- 顶部 -->
     <div class="header">
         🐰 JK's LOVE DIARY 📓
     </div>
 
-    <!-- Q&A 区域：请在这里修改问题和答案 -->
+    <!-- Q&A 区域 -->
     <div class="qa-container">
 
         <!-- 问题 1 -->
@@ -262,10 +265,9 @@
             <div class="tape"></div>
             <div class="question-text">Q1:人，你喜欢菇菇哪里？ </div>
             <div class="options-group" id="q1-opts">
-                <button class="opt-btn" onclick="answer('q1', 'A')">不给亲亲就循环怪叫攻势>da er du
-                <button class="opt-btn" onclick="answer('q1', 'B')">不给亲亲就拆家攻势>gei>gbut
+                <button class="opt-btn" onclick="answer('q1', 'A')">不给亲亲就循环怪叫攻势</button>
+                <button class="opt-btn" onclick="answer('q1', 'B')">不给亲亲就拆家攻势</button>
             </div>
-            <!-- 答案显示区 -->
             <div id="q1-result" class="answer-result"></div>
         </div>
 
@@ -317,7 +319,7 @@
 
     <!-- 悬浮播放球 (点击展开) -->
     <div class="floating-player" id="floatBtn" onclick="toggleModal()">
-        <!-- 这里放一个默认的黑胶图片，或者JK的头像 -->
+        <!-- 头像 -->
         <img src="https://img.baidu.re/i/2025/12/linaa8.jpeg" class="cd-cover" alt="CD">
     </div>
 
@@ -327,8 +329,7 @@
         
         <div class="big-cd">
             <!-- 大图封面 -->
-            <img src="https://img.baidu.re/i/2025/12/ickmuy.jpeg
-" style="width:100%; height:100%; object-fit:cover;" id="bigCover">
+            <img src="https://img.baidu.re/i/2025/12/ickmuy.jpeg" style="width:100%; height:100%; object-fit:cover;" id="bigCover">
         </div>
 
         <div class="song-info">
@@ -336,7 +337,7 @@
             <div class="song-artist">Jung Kook</div>
         </div>
 
-        <!-- 进度条 (装饰用) -->
+        <!-- 进度条 -->
         <div style="width:100%; height:4px; background:#ddd; border-radius:2px; margin-bottom:20px; overflow:hidden;">
             <div id="progressBar" style="width:0%; height:100%; background:var(--accent-purple);"></div>
         </div>
@@ -350,7 +351,7 @@
 
     <script>
         // ============================
-        // 1. Q&A 互动设置 (请在这里修改回复文案)
+        // 1. Q&A 互动设置 
         // ============================
         const qaData = {
             'q1': {
@@ -376,45 +377,61 @@
         };
 
         function answer(questionId, choice) {
-            // 隐藏选项按钮
             document.getElementById(questionId + '-opts').style.display = 'none';
-            // 显示手写回复
             const resultBox = document.getElementById(questionId + '-result');
             resultBox.style.display = 'block';
             resultBox.innerHTML = qaData[questionId][choice];
         }
 
         // ============================
-        // 2. 音乐播放器设置 (请在这里放入你的歌)
+        // 2. 音乐播放器设置 
         // ============================
         const playlist = [
-            // 格式：{ title: "歌名", url: "mp3链接" },
-            // 注意：链接必须是直链（以.mp3结尾的最好），网易云/QQ音乐的分享链接不能直接用
             { title: "love letter", url: "https://files.catbox.moe/9yxvsj.mp3" },
-            { title: "爱啦啦", url: "https://files.catbox.moe/1izlp5.mp3" },
-        
+            { title: "爱啦啦", url: "https://files.catbox.moe/1izlp5.mp3" }
         ];
 
-        // 播放器逻辑 (不要动下面的代码)
+        // ============================
+        // 3. 修复版播放核心逻辑
+        // ============================
         let currentIdx = 0;
         let isPlaying = false;
-        const audio = new Audio();
         
-        // 界面元素
+        // 【关键】获取 HTML 里的真实标签
+        const audio = document.getElementById('bgm');
+        
         const playerModal = document.getElementById('playerModal');
         const floatBtn = document.getElementById('floatBtn');
         const playBtn = document.getElementById('playBtn');
         const titleEl = document.getElementById('songTitle');
-        const bigCd = document.querySelector('.big-cd'); // 修正选择器
         const progBar = document.getElementById('progressBar');
 
-        // 初始化第一首
-        loadSong(currentIdx);
+        // 初始化
+        titleEl.innerText = playlist[0].title;
+
+        // 【关键】触摸解锁音频
+        // 只要用户摸了屏幕，就强制加载一下音频，解决豆包没声音的问题
+        let audioUnlocked = false;
+        document.body.addEventListener('touchstart', function() {
+            if (!audioUnlocked) {
+                audio.load();
+                audioUnlocked = true;
+            }
+        }, { once: true });
+
+        // 点击其他地方也尝试解锁
+        document.body.addEventListener('click', function() {
+            if (!audioUnlocked) {
+                audio.load();
+                audioUnlocked = true;
+            }
+        }, { once: true });
 
         function loadSong(index) {
             titleEl.innerText = playlist[index].title;
             audio.src = playlist[index].url;
-            updateMediaSession();
+            // 每次切歌都要重新 load
+            audio.load();
         }
 
         function toggleModal() {
@@ -422,6 +439,11 @@
         }
 
         function togglePlay() {
+            // 第一次点击如果还没源，先加载
+            if (!audio.src || audio.src === window.location.href) {
+                loadSong(currentIdx);
+            }
+
             if (isPlaying) {
                 audio.pause();
                 isPlaying = false;
@@ -429,31 +451,47 @@
                 floatBtn.classList.remove('playing');
                 playerModal.classList.remove('playing');
             } else {
-                audio.play();
-                isPlaying = true;
-                playBtn.innerText = "⏸";
-                floatBtn.classList.add('playing');
-                playerModal.classList.add('playing');
+                // 尝试播放并捕获错误
+                var playPromise = audio.play();
+                
+                if (playPromise !== undefined) {
+                    playPromise.then(_ => {
+                        isPlaying = true;
+                        playBtn.innerText = "⏸";
+                        floatBtn.classList.add('playing');
+                        playerModal.classList.add('playing');
+                        updateMediaSession();
+                    })
+                    .catch(error => {
+                        console.log("Play failed:", error);
+                        // 如果播放失败，尝试静音播放一次来激活
+                        isPlaying = false;
+                    });
+                }
             }
-            updateMediaSession();
         }
 
         function nextSong() {
             currentIdx = (currentIdx + 1) % playlist.length;
             loadSong(currentIdx);
-            if (isPlaying) audio.play();
+            // 延迟一点点播放，给手机缓冲时间
+            setTimeout(() => {
+                if (isPlaying) audio.play().catch(e => console.log(e));
+            }, 100);
         }
 
         function prevSong() {
             currentIdx = (currentIdx - 1 + playlist.length) % playlist.length;
             loadSong(currentIdx);
-            if (isPlaying) audio.play();
+            setTimeout(() => {
+                if (isPlaying) audio.play().catch(e => console.log(e));
+            }, 100);
         }
 
-        // 自动播放下一首
+        // 自动切歌
         audio.onended = nextSong;
 
-        // 更新进度条
+        // 进度条
         audio.ontimeupdate = () => {
             if(audio.duration) {
                 const percent = (audio.currentTime / audio.duration) * 100;
@@ -461,25 +499,22 @@
             }
         };
 
-        // Media Session API (支持锁屏显示/通知栏控制)
+        // Media Session (锁屏控制)
         function updateMediaSession() {
             if ('mediaSession' in navigator) {
                 navigator.mediaSession.metadata = new MediaMetadata({
                     title: playlist[currentIdx].title,
                     artist: 'Jung Kook',
-                    album: 'Golden',
                     artwork: [
-                        { src: 'https://i.pinimg.com/564x/a4/6a/c8/a46ac831707252026139e80352597b87.jpg', sizes: '512x512', type: 'image/jpeg' }
+                        { src: 'https://img.baidu.re/i/2025/12/ickmuy.jpeg', sizes: '512x512', type: 'image/jpeg' }
                     ]
                 });
-
                 navigator.mediaSession.setActionHandler('play', togglePlay);
                 navigator.mediaSession.setActionHandler('pause', togglePlay);
                 navigator.mediaSession.setActionHandler('previoustrack', prevSong);
                 navigator.mediaSession.setActionHandler('nexttrack', nextSong);
             }
         }
-
     </script>
 </body>
 </html>
