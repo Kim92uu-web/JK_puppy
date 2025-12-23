@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>JK's Secret Playlist</title>
+    <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-color: #f3e5f5; /* 浅紫背景 */
+            --accent-purple: #9b59b6; 
+            --deep-purple: #8e44ad;
+            --sticker-pink: #ff80ab;
+            --cd-size: 60px; /* 悬浮球大小 */
+        }
+
+        * { box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
+        body {
+            margin: 0; padding: 0;
+            font-family: 'VT323', monospace;
+            background-color: var(--bg-color);
+            /* 格子背景 */
+            background-image: 
+                linear-gradient(rgba(155, 89, 182, 0.1) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(155, 89, 182, 0.1) 1px, transparent 1px);
+            background-size: 20px 20px;
+            padding-bottom: 100px; /* 防止内容被悬浮球挡住 */
+        }
+
+        /* 顶部标题 */
+        .header {
+            padding: 20px;
+            text-align: center;
+            color: var(--deep-purple);
+            font-size: 1.5rem;
+            text-shadow: 2px 2px 0px #fff;
+            border-bottom: 2px dashed var(--accent-purple);
+            background: rgba(255,255,255,0.5);
+            backdrop-filter: blur(5px);
+        }
+
+        /* ==================== 
+           Q&A 纸条样式 
+           ==================== */
+        .qa-container {
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 25px;
+        }
+
+        .paper-note {
+            background: #fff;
+            padding: 20px;
+            border: 1px solid #ddd;
+            box-shadow: 5px 5px 0px rgba(0,0,0,0.1);
+            position: relative;
+            transform: rotate(-1deg);
+        }
+
+        .paper-note:nth-child(even) { transform: rotate(1deg); }
+
+        /* 胶带装饰 */
+        .tape {
+            position: absolute;
+            top: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80px;
+            height: 25px;
+            background: rgba(155, 89, 182, 0.4);
+            opacity: 0.8;
+        }
+
+        .question-text {
+            font-size: 1.3rem;
+            color: #333;
+            margin-bottom: 15px;
+            line-height: 1.4;
+        }
+
+        .options-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        .opt-btn {
+            flex: 1;
+            padding: 10px;
+            border: 2px solid var(--accent-purple);
+            background: #fff;
+            color: var(--accent-purple);
+            font-family: inherit;
+            font-size: 1.1rem;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: all 0.2s;
+        }
+
+        .opt-btn:active {
+            background: var(--accent-purple);
+            color: #fff;
+            transform: scale(0.95);
+        }
+
+        /* 结果样式 */
+        .answer-result {
+            display: none; /* 默认隐藏 */
+            margin-top: 15px;
+            font-size: 1.2rem;
+            color: #d63031; /* 红色手写笔迹 */
+            font-weight: bold;
+            font-family: cursive, sans-serif; /* 手写感 */
+            border-top: 1px dashed #ccc;
+            padding-top: 10px;
+            animation: fadeIn 0.5s;
+        }
+
+        /* ==================== 
+           悬浮音乐播放器 
+           ==================== */
+        /* 悬浮球 (CD) */
+        .floating-player {
+            position: fixed;
+            bottom: 30px;
+            right: 20px;
+            width: var(--cd-size);
+            height: var(--cd-size);
+            background: #000;
+            border-radius: 50%;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            cursor: pointer;
+            overflow: hidden;
+            border: 2px solid #fff;
+        }
+
+        /* 唱片封面图 */
+        .cd-cover {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            object-fit: cover;
+            animation: spin 8s linear infinite;
+            animation-play-state: paused; /* 默认暂停 */
+        }
+        
+        .floating-player.playing .cd-cover {
+            animation-play-state: running;
+        }
+
+        /* 播放器全屏面板 */
+        .player-modal {
+            position: fixed;
+            bottom: -100%; /* 默认藏在下面 */
+            left: 0;
+            width: 100%;
+            height: 85vh;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px 20px 0 0;
+            z-index: 101;
+            transition: bottom 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 30px;
+            box-shadow: 0 -5px 20px rgba(0,0,0,0.1);
+        }
+
+        .player-modal.active {
+            bottom: 0;
+        }
+
+        /* 关闭按钮 */
+        .close-btn {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            font-size: 2rem;
+            color: #888;
+            cursor: pointer;
+        }
+
+        /* 大唱片 */
+        .big-cd {
+            width: 240px;
+            height: 240px;
+            border-radius: 50%;
+            background: #000;
+            margin: 20px 0;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            border: 4px solid #333;
+            overflow: hidden;
+            position: relative;
+            animation: spin 10s linear infinite;
+            animation-play-state: paused;
+        }
+        
+        .player-modal.playing .big-cd {
+            animation-play-state: running;
+        }
+
+        /* 歌曲信息 */
+        .song-info {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .song-title { font-size: 1.8rem; color: #000; margin-bottom: 5px; }
+        .song-artist { font-size: 1.2rem; color: #666; }
+
+        /* 控制按钮组 */
+        .controls {
+            display: flex;
+            align-items: center;
+            gap: 30px;
+            margin-top: 10px;
+        }
+
+        .ctrl-btn {
+            font-size: 2rem;
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--deep-purple);
+        }
+
+        .play-pause-btn {
+            font-size: 3.5rem;
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: var(--accent-purple);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 10px rgba(155,89,182, 0.4);
+        }
+
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+    </style>
+</head>
+<body>
+
+    <!-- 顶部 -->
+    <div class="header">
+        🐰 JK's LOVE DIARY 📓
+    </div>
+
+    <!-- Q&A 区域：请在这里修改问题和答案 -->
+    <div class="qa-container">
+
+        <!-- 问题 1 -->
+        <div class="paper-note">
+            <div class="tape"></div>
+            <div class="question-text">Q1: 如果我要去世界巡演，你会...？</div>
+            <div class="options-group" id="q1-opts">
+                <button class="opt-btn" onclick="answer('q1', 'A')">在家里乖乖等你</button>
+                <button class="opt-btn" onclick="answer('q1', 'B')">买机票飞去见你</button>
+            </div>
+            <!-- 答案显示区 -->
+            <div id="q1-result" class="answer-result"></div>
+        </div>
+
+        <!-- 问题 2 -->
+        <div class="paper-note">
+            <div class="tape" style="background:#ff80ab"></div>
+            <div class="question-text">Q2: 今晚想吃什么夜宵？</div>
+            <div class="options-group" id="q2-opts">
+                <button class="opt-btn" onclick="answer('q2', 'A')">炸鸡配啤酒!</button>
+                <button class="opt-btn" onclick="answer('q2', 'B')">你煮的拉面</button>
+            </div>
+            <div id="q2-result" class="answer-result"></div>
+        </div>
+
+        <!-- 问题 3 -->
+        <div class="paper-note">
+            <div class="tape"></div>
+            <div class="question-text">Q3: 我把头发剪短了，好看吗？</div>
+            <div class="options-group" id="q3-opts">
+                <button class="opt-btn" onclick="answer('q3', 'A')">超帅！什么发型都爱</button>
+                <button class="opt-btn" onclick="answer('q3', 'B')">怀念长发JK 🥺</button>
+            </div>
+            <div id="q3-result" class="answer-result"></div>
+        </div>
+
+        <!-- 问题 4 -->
+        <div class="paper-note">
+            <div class="tape" style="background:#ff80ab"></div>
+            <div class="question-text">Q4: 周末想去哪里约会？</div>
+            <div class="options-group" id="q4-opts">
+                <button class="opt-btn" onclick="answer('q4', 'A')">汉江公园骑单车</button>
+                <button class="opt-btn" onclick="answer('q4', 'B')">在工作室听你写歌</button>
+            </div>
+            <div id="q4-result" class="answer-result"></div>
+        </div>
+
+        <!-- 问题 5 -->
+        <div class="paper-note">
+            <div class="tape"></div>
+            <div class="question-text">Q5: Do you love me?</div>
+            <div class="options-group" id="q5-opts">
+                <button class="opt-btn" onclick="answer('q5', 'A')">YES!!! 💜</button>
+                <button class="opt-btn" onclick="answer('q5', 'B')">Forever & Always</button>
+            </div>
+            <div id="q5-result" class="answer-result"></div>
+        </div>
+
+    </div>
+
+    <!-- 悬浮播放球 (点击展开) -->
+    <div class="floating-player" id="floatBtn" onclick="toggleModal()">
+        <!-- 这里放一个默认的黑胶图片，或者JK的头像 -->
+        <img src="https://i.pinimg.com/564x/a4/6a/c8/a46ac831707252026139e80352597b87.jpg" class="cd-cover" alt="CD">
+    </div>
+
+    <!-- 全屏播放器面板 -->
+    <div class="player-modal" id="playerModal">
+        <div class="close-btn" onclick="toggleModal()">×</div>
+        
+        <div class="big-cd">
+            <!-- 大图封面 -->
+            <img src="https://i.pinimg.com/564x/a4/6a/c8/a46ac831707252026139e80352597b87.jpg" style="width:100%; height:100%; object-fit:cover;" id="bigCover">
+        </div>
+
+        <div class="song-info">
+            <div class="song-title" id="songTitle">Loading...</div>
+            <div class="song-artist">Jung Kook</div>
+        </div>
+
+        <!-- 进度条 (装饰用) -->
+        <div style="width:100%; height:4px; background:#ddd; border-radius:2px; margin-bottom:20px; overflow:hidden;">
+            <div id="progressBar" style="width:0%; height:100%; background:var(--accent-purple);"></div>
+        </div>
+
+        <div class="controls">
+            <button class="ctrl-btn" onclick="prevSong()">⏮</button>
+            <button class="play-pause-btn" onclick="togglePlay()" id="playBtn">▶</button>
+            <button class="ctrl-btn" onclick="nextSong()">⏭</button>
+        </div>
+    </div>
+
+    <script>
+        // ============================
+        // 1. Q&A 互动设置 (请在这里修改回复文案)
+        // ============================
+        const qaData = {
+            'q1': {
+                'A': "JK: 真的吗？那我每天都要视频通话！📞",
+                'B': "JK: 呀！太好了，我会去机场接你的！✈️"
+            },
+            'q2': {
+                'A': "JK: 懂我！Cheers! 🍻",
+                'B': "JK: 好啊，我会为你煮最好吃的拉面~ 🍜"
+            },
+            'q3': {
+                'A': "JK: 嘿嘿，我也觉得很清爽~ 😎",
+                'B': "JK: 别哭别哭，很快就长回来啦~ 👋"
+            },
+            'q4': {
+                'A': "JK: 走！一定要看夕阳~ 🚲",
+                'B': "JK: 那你要第一个听我的Demo哦 🎧"
+            },
+            'q5': {
+                'A': "JK: I love you more! 💜",
+                'B': "JK: Promise? 🤙"
+            }
+        };
+
+        function answer(questionId, choice) {
+            // 隐藏选项按钮
+            document.getElementById(questionId + '-opts').style.display = 'none';
+            // 显示手写回复
+            const resultBox = document.getElementById(questionId + '-result');
+            resultBox.style.display = 'block';
+            resultBox.innerHTML = qaData[questionId][choice];
+        }
+
+        // ============================
+        // 2. 音乐播放器设置 (请在这里放入你的10首歌)
+        // ============================
+        const playlist = [
+            // 格式：{ title: "歌名", url: "mp3链接" },
+            // 注意：链接必须是直链（以.mp3结尾的最好），网易云/QQ音乐的分享链接不能直接用
+            { title: "Seven (Explicit Ver.)", url: "https://music.163.com/song/media/outer/url?id=2062579123.mp3" },
+            { title: "3D", url: "https://music.163.com/song/media/outer/url?id=2086280387.mp3" },
+            { title: "Standing Next to You", url: "https://music.163.com/song/media/outer/url?id=2097637845.mp3" },
+            { title: "Still With You", url: "https://music.163.com/song/media/outer/url?id=1454659929.mp3" },
+            { title: "My You", url: "https://music.163.com/song/media/outer/url?id=1955685710.mp3" },
+            { title: "Euphoria", url: "https://music.163.com/song/media/outer/url?id=1306506304.mp3" },
+            { title: "Dreamers", url: "https://music.163.com/song/media/outer/url?id=1998595786.mp3" },
+            { title: "Left and Right", url: "https://music.163.com/song/media/outer/url?id=1958611985.mp3" },
+            { title: "Stay Alive", url: "https://music.163.com/song/media/outer/url?id=1917954546.mp3" },
+            { title: "Hate You", url: "https://music.163.com/song/media/outer/url?id=2097641214.mp3" }
+        ];
+
+        // 播放器逻辑 (不要动下面的代码)
+        let currentIdx = 0;
+        let isPlaying = false;
+        const audio = new Audio();
+        
+        // 界面元素
+        const playerModal = document.getElementById('playerModal');
+        const floatBtn = document.getElementById('floatBtn');
+        const playBtn = document.getElementById('playBtn');
+        const titleEl = document.getElementById('songTitle');
+        const bigCd = document.querySelector('.big-cd'); // 修正选择器
+        const progBar = document.getElementById('progressBar');
+
+        // 初始化第一首
+        loadSong(currentIdx);
+
+        function loadSong(index) {
+            titleEl.innerText = playlist[index].title;
+            audio.src = playlist[index].url;
+            updateMediaSession();
+        }
+
+        function toggleModal() {
+            playerModal.classList.toggle('active');
+        }
+
+        function togglePlay() {
+            if (isPlaying) {
+                audio.pause();
+                isPlaying = false;
+                playBtn.innerText = "▶";
+                floatBtn.classList.remove('playing');
+                playerModal.classList.remove('playing');
+            } else {
+                audio.play();
+                isPlaying = true;
+                playBtn.innerText = "⏸";
+                floatBtn.classList.add('playing');
+                playerModal.classList.add('playing');
+            }
+            updateMediaSession();
+        }
+
+        function nextSong() {
+            currentIdx = (currentIdx + 1) % playlist.length;
+            loadSong(currentIdx);
+            if (isPlaying) audio.play();
+        }
+
+        function prevSong() {
+            currentIdx = (currentIdx - 1 + playlist.length) % playlist.length;
+            loadSong(currentIdx);
+            if (isPlaying) audio.play();
+        }
+
+        // 自动播放下一首
+        audio.onended = nextSong;
+
+        // 更新进度条
+        audio.ontimeupdate = () => {
+            if(audio.duration) {
+                const percent = (audio.currentTime / audio.duration) * 100;
+                progBar.style.width = percent + "%";
+            }
+        };
+
+        // Media Session API (支持锁屏显示/通知栏控制)
+        function updateMediaSession() {
+            if ('mediaSession' in navigator) {
+                navigator.mediaSession.metadata = new MediaMetadata({
+                    title: playlist[currentIdx].title,
+                    artist: 'Jung Kook',
+                    album: 'Golden',
+                    artwork: [
+                        { src: 'https://i.pinimg.com/564x/a4/6a/c8/a46ac831707252026139e80352597b87.jpg', sizes: '512x512', type: 'image/jpeg' }
+                    ]
+                });
+
+                navigator.mediaSession.setActionHandler('play', togglePlay);
+                navigator.mediaSession.setActionHandler('pause', togglePlay);
+                navigator.mediaSession.setActionHandler('previoustrack', prevSong);
+                navigator.mediaSession.setActionHandler('nexttrack', nextSong);
+            }
+        }
+
+    </script>
+</body>
+</html>
